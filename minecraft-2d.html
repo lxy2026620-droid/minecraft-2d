@@ -66,6 +66,15 @@
   #sp.open{display:block}
   #sp label{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
   #sp input[type=range]{width:100px}
+  /* 主菜单 */
+  #menu{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:linear-gradient(#3a6090 0%,#6a90c0 30%,#5a8840 70%,#4a6a30 85%,#5a5a3a 100%);overflow:hidden}
+  #menu::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(transparent,transparent 3px,rgba(0,0,0,0.06) 4px,rgba(0,0,0,0.06) 5px)}
+  #menu h1{color:#fff;font-size:42px;text-shadow:3px 3px 0 #3a3a3a;margin-bottom:30px;z-index:1;letter-spacing:4px;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+  #menu h1 span{color:#ffd040}
+  .menubtn{width:260px;padding:10px 0;margin:6px 0;border:3px solid #1a1a1a;border-top-color:#888;border-left-color:#888;border-right-color:#222;background:#7a7a7a;color:#fff;font-size:16px;text-align:center;cursor:pointer;position:relative;z-index:1;font-family:"Microsoft YaHei","Segoe UI",sans-serif;text-shadow:2px 2px 0 #3a3a3a}
+  .menubtn:hover{background:#9a9a9a;border-top-color:#aaa;border-left-color:#aaa}
+  #menu .ver{color:#aaa;font-size:11px;position:absolute;bottom:12px;z-index:1}
 </style>
 </head>
 <body>
@@ -119,6 +128,7 @@
 </div>
 
 <div id="loading"><div>正在加载 Minecraft 纹理…</div><div class="bar"><div class="fill" id="loadFill"></div></div></div>
+<div id="menu"><h1><span>MC</span> 2D</h1><div class="menubtn" onclick="startGame()">单人游戏</div><div class="menubtn" onclick="toggleSettings()">设置</div><div class="menubtn" onclick="window.open('https://github.com/lxy2026620-droid/minecraft-2d','_blank')">GitHub</div><span class="ver">v1.0 · 种子: <span id="menuSeed">---</span></span></div>
 
 <script>
 "use strict";
@@ -483,7 +493,7 @@ function updateBreaking(){
     const b=getBlock(targetBX,targetBY);
     if(b!==0&&SOLID.has(b)){
       if(!breaking)breaking={x:targetBX,y:targetBY,prog:0};
-      breaking.prog+=getBreakSpeed(targetBX,targetBY)*0.025;
+      breaking.prog+=getBreakSpeed(targetBX,targetBY)*0.007;
       if(Math.random()<0.05)playSound('dig',b);
       if(breaking.prog>=1){doBreak(targetBX,targetBY,b);breaking=null;}
     } else breaking=null;
@@ -1023,7 +1033,13 @@ function init(){
   loadSettings(); applySet();
   initMobile();
   document.getElementById('loading').classList.add('hidden');
+  document.getElementById('menuSeed').textContent = worldSeed;
+  // 游戏不自动开始, 等待主菜单按钮
+}
+function startGame(){
+  document.getElementById('menu').style.display='none';
   loop();
+}
 }
 init();
 </script>
