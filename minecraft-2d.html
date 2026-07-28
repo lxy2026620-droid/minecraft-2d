@@ -111,7 +111,16 @@
 </div>
 
 <div class="panel" id="crafting">
-  <div class="title">合成 (C 关闭)</div>
+  <div class="title" id="craftTitle">工作台 — 右键工作台打开 (C键打开简易合成)</div>
+  <div style="display:flex;gap:14px;align-items:center;justify-content:center">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;gap:3px"><div class="slot cslot" data-ci="0"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="1"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="2"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div></div>
+      <div style="display:flex;gap:3px"><div class="slot cslot" data-ci="3"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="4"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="5"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div></div>
+      <div style="display:flex;gap:3px"><div class="slot cslot" data-ci="6"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="7"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div><div class="slot cslot" data-ci="8"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div></div>
+    </div>
+    <div style="font-size:24px">→</div>
+    <div class="slot" id="craftOut" style="width:52px;height:52px"><canvas class="icon" width="40" height="40"></canvas><div class="count"></div></div>
+  </div>
   <div id="recipeList"></div>
 </div>
 
@@ -203,27 +212,6 @@ const BASIC_RECIPES=[
   {out:[10,4],in:[{t:7,c:2}],name:'木棍 ×4'},
   {out:[11,1],in:[{t:7,c:4}],name:'工作台'},
 ];
-const TABLE_RECIPES=[
-  {out:[12,1],in:[{t:7,c:3},{t:10,c:2}],name:'木镐'},
-  {out:[13,1],in:[{t:7,c:2},{t:10,c:1}],name:'木剑'},
-  {out:[14,1],in:[{t:7,c:3},{t:10,c:2}],name:'木斧'},
-  {out:[17,1],in:[{t:16,c:3},{t:7,c:3}],name:'床'},
-  {out:[18,1],in:[{t:3,c:8}],name:'熔炉'},
-  {out:[26,1],in:[{t:20,c:3},{t:10,c:2}],name:'铁镐'},
-  {out:[27,1],in:[{t:20,c:2},{t:10,c:1}],name:'铁剑'},
-  {out:[28,1],in:[{t:20,c:3},{t:10,c:2}],name:'铁斧'},
-  {out:[29,1],in:[{t:21,c:3},{t:10,c:2}],name:'钻石镐'},
-  {out:[30,1],in:[{t:21,c:2},{t:10,c:1}],name:'钻石剑'},
-  {out:[31,1],in:[{t:21,c:3},{t:10,c:2}],name:'钻石斧'},
-  {out:[38,1],in:[{t:3,c:3},{t:10,c:2}],name:'石镐'},
-  {out:[39,1],in:[{t:3,c:2},{t:10,c:1}],name:'石剑'},
-  {out:[40,1],in:[{t:3,c:3},{t:10,c:2}],name:'石斧'},
-  {out:[48,1],in:[{t:47,c:3},{t:10,c:2}],name:'金镐'},
-  {out:[49,1],in:[{t:47,c:2},{t:10,c:1}],name:'金剑'},
-  {out:[50,1],in:[{t:47,c:3},{t:10,c:2}],name:'金斧'},
-];
-let activeRecipes=BASIC_RECIPES;
-
 // ============================================================ 画布
 const canvas=document.getElementById('game');
 const ctx=canvas.getContext('2d');
@@ -728,26 +716,101 @@ function clickSlot(index,button){
   updateInventoryUI(); updateCursorItem();
 }
 
-// ============================================================ 合成
-function canCraft(r){for(const m of r.in)if(countItem(m.t)<m.c)return false;return true;}
-function craft(r){if(!canCraft(r))return;for(const m of r.in)removeItem(m.t,m.c);addToInventory(r.out[0],r.out[1]);playSound('craft');updateInventoryUI();updateCraftingUI();}
-function updateCraftingUI(){
-  const list=document.getElementById('recipeList'); list.innerHTML='';
-  const title=document.querySelector('#crafting .title');
-  if(title)title.textContent=craftingLevel===2?'工作台合成 (右键工作台打开)':'简易合成 (C键打开 · 工具请用工作台)';
-  for(const r of activeRecipes){
-    const ok=canCraft(r); const div=document.createElement('div'); div.className='recipe'+(ok?'':' disabled');
-    const icon=document.createElement('canvas'); icon.width=36; icon.height=36; icon.className='r-out'; drawIconTo(icon,r.out[0]);
-    const name=document.createElement('div'); name.className='r-name'; name.textContent=r.name;
-    const cnt=document.createElement('span'); cnt.className='r-count'; cnt.textContent='×'+r.out[1]; name.appendChild(cnt);
-    const need=document.createElement('div'); need.className='r-in'; need.textContent=r.in.map(m=>DEFS[m.t].name+'×'+m.c).join(' · ');
-    div.appendChild(icon); div.appendChild(name); div.appendChild(need);
-    if(ok)div.addEventListener('click',()=>craft(r));
+// ============================================================ 合成 (3x3工作台)
+const craftingGrid = new Array(9).fill(null);
+const CRAFT_SHAPES = [
+  {s:[[7,7,7],[0,10,0],[0,10,0]], o:[12,1]},         // 木镐
+  {s:[[7,0,0],[10,0,0],[10,0,0]], o:[13,1]},         // 木剑
+  {s:[[7,7,0],[7,10,0],[0,10,0]], o:[14,1]},         // 木斧
+  {s:[[3,3,3],[0,10,0],[0,10,0]], o:[38,1]},         // 石镐
+  {s:[[3,0,0],[10,0,0],[10,0,0]], o:[39,1]},         // 石剑
+  {s:[[3,3,0],[3,10,0],[0,10,0]], o:[40,1]},         // 石斧
+  {s:[[20,20,20],[0,10,0],[0,10,0]], o:[26,1]},      // 铁镐
+  {s:[[20,0,0],[10,0,0],[10,0,0]], o:[27,1]},        // 铁剑
+  {s:[[20,20,0],[20,10,0],[0,10,0]], o:[28,1]},      // 铁斧
+  {s:[[21,21,21],[0,10,0],[0,10,0]], o:[29,1]},      // 钻石镐
+  {s:[[21,0,0],[10,0,0],[10,0,0]], o:[30,1]},        // 钻石剑
+  {s:[[21,21,0],[21,10,0],[0,10,0]], o:[31,1]},      // 钻石斧
+  {s:[[47,47,47],[0,10,0],[0,10,0]], o:[48,1]},      // 金镐
+  {s:[[47,0,0],[10,0,0],[10,0,0]], o:[49,1]},        // 金剑
+  {s:[[47,47,0],[47,10,0],[0,10,0]], o:[50,1]},      // 金斧
+  {s:[[16,16,16],[7,7,7],[0,0,0]], o:[17,1]},        // 床
+  {s:[[3,3,3],[3,0,3],[3,3,3]], o:[18,1]},           // 熔炉
+  {s:[[7,7,0],[7,0,0],[0,0,0]], o:[11,1]},           // 工作台(2x2木板)
+];
+function matchCraftShape(){
+  for(const r of CRAFT_SHAPES){
+    let m=true;
+    for(let y=0;y<3;y++)for(let x=0;x<3;x++){
+      const need=r.s[y][x];
+      const have=craftingGrid[y*3+x];
+      if(need===0){if(have!==null)m=false;}
+      else if(need===null)continue;
+      else if(!have||have.type!==need)m=false;
+      if(!m)break;
+    }
+    if(m)return r;
+  }
+  return null;
+}
+function clickCraftSlot(ci,button){
+  if(button===0){const tmp=craftingGrid[ci];craftingGrid[ci]=cursorItem;cursorItem=tmp;}
+  else if(button===2){
+    if(cursorItem){if(craftingGrid[ci]&&craftingGrid[ci].type===cursorItem.type){craftingGrid[ci].count++;cursorItem.count--;if(cursorItem.count<=0)cursorItem=null;}else if(!craftingGrid[ci]){craftingGrid[ci]={type:cursorItem.type,count:1};cursorItem.count--;if(cursorItem.count<=0)cursorItem=null;}}
+    else if(craftingGrid[ci]){cursorItem={type:craftingGrid[ci].type,count:1};craftingGrid[ci].count--;if(craftingGrid[ci].count<=0)craftingGrid[ci]=null;}
+  }
+  updateCraftUI();updateCursorItem();
+}
+function takeCraftResult(){
+  const r=matchCraftShape(); if(!r)return;
+  for(let i=0;i<9;i++)if(craftingGrid[i]){craftingGrid[i].count-=1;if(craftingGrid[i].count<=0)craftingGrid[i]=null;}
+  addToInventory(r.o[0],r.o[1]);playSound('craft');updateCraftUI();updateInventoryUI();
+}
+function updateCraftUI(){
+  if(!craftingOpen)return;
+  const title=document.getElementById('craftTitle');
+  title.textContent=craftingLevel===2?'工作台 — 3×3合成 (右键工作台打开)':'简易合成 (C键打开)';
+  document.getElementById('recipeList').style.display=craftingLevel===2?'none':'block';
+  document.querySelectorAll('.cslot').forEach(s=>s.style.display=craftingLevel===2?'flex':'none');
+  document.getElementById('craftOut').style.display=craftingLevel===2?'flex':'none';
+  if(craftingLevel===1){updateCraftListUI();return;} // 简易合成用配方列表
+  // 更新3x3格子
+  for(let i=0;i<9;i++){
+    const slot=document.querySelector(`.cslot[data-ci="${i}"]`);
+    if(!slot)continue;const it=craftingGrid[i];
+    const ic=slot.querySelector('.icon'),cn=slot.querySelector('.count');
+    if(it){drawIconTo(ic,it.type);cn.textContent=it.count>1?it.count:'';}
+    else{ic.getContext('2d').clearRect(0,0,40,40);cn.textContent='';}
+  }
+  const r=matchCraftShape();
+  const out=document.getElementById('craftOut');const oic=out.querySelector('.icon'),ocn=out.querySelector('.count');
+  if(r){drawIconTo(oic,r.o[0]);ocn.textContent='×'+r.o[1];}
+  else{oic.getContext('2d').clearRect(0,0,40,40);ocn.textContent='';}
+}
+function updateCraftListUI(){
+  const list=document.getElementById('recipeList');list.innerHTML='';
+  for(const r of BASIC_RECIPES){
+    const ok=canCraft(r);const div=document.createElement('div');div.className='recipe'+(ok?'':' disabled');
+    const icon=document.createElement('canvas');icon.width=36;icon.height=36;icon.className='r-out';drawIconTo(icon,r.out[0]);
+    const name=document.createElement('div');name.className='r-name';name.textContent=r.name;
+    const cnt=document.createElement('span');cnt.className='r-count';cnt.textContent='×'+r.out[1];name.appendChild(cnt);
+    const need=document.createElement('div');need.className='r-in';need.textContent=r.in.map(m=>DEFS[m.t].name+'×'+m.c).join(' · ');
+    div.appendChild(icon);div.appendChild(name);div.appendChild(need);
+    if(ok)div.addEventListener('click',()=>{craft(r);updateCraftListUI();});
     list.appendChild(div);
   }
 }
-
-// ============================================================ 熔炉
+function canCraft(r){for(const m of r.in)if(countItem(m.t)<m.c)return false;return true;}
+function craft(r){if(!canCraft(r))return;for(const m of r.in)removeItem(m.t,m.c);addToInventory(r.out[0],r.out[1]);playSound('craft');updateInventoryUI();}
+function toggleCrafting(lvl){
+  if(lvl===undefined)lvl=craftingOpen?0:craftingLevel;
+  craftingOpen=lvl>0;craftingLevel=lvl||1;
+  if(!craftingOpen){// 关闭时退回工作台物品
+    for(let i=0;i<9;i++){if(craftingGrid[i]){addToInventory(craftingGrid[i].type,craftingGrid[i].count);craftingGrid[i]=null;}}
+  }
+  document.getElementById('crafting').classList.toggle('open',craftingOpen);
+  if(craftingOpen)updateCraftUI();else updateInventoryUI();
+}
 let furnace={bx:0,by:0,in:null,fuel:null,out:null,burn:0,cook:0};
 function openFurnace(bx,by){ furnace.bx=bx; furnace.by=by; furnaceOpen=true; document.getElementById('furnace').classList.add('open'); updateFurnaceUI(); }
 function closeFurnace(){ if(furnaceOpen){ furnaceOpen=false; document.getElementById('furnace').classList.remove('open'); // 把物品退回背包
@@ -1067,7 +1130,12 @@ function init(){
   // 初始物品
   addToInventory(7,16); addToInventory(4,8); addToInventory(13,1); addToInventory(15,3);
   updateInventoryUI();
-  loadSettings(); applySet();
+  document.querySelectorAll('.cslot').forEach(s=>{
+    s.addEventListener('mousedown',e=>{e.preventDefault();clickCraftSlot(parseInt(s.dataset.ci),e.button);});
+    s.addEventListener('contextmenu',e=>e.preventDefault());
+  });
+  document.getElementById('craftOut').addEventListener('mousedown',e=>{e.preventDefault();takeCraftResult();});
+  document.getElementById('craftOut').addEventListener('contextmenu',e=>e.preventDefault());
   initMobile();
   // 主菜单按钮事件绑定(修复onclick失效)
   document.querySelectorAll('.menubtn').forEach(b=>{
