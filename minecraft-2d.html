@@ -137,7 +137,7 @@
 </div>
 
 <div id="loading"><div>正在加载 Minecraft 纹理…</div><div class="bar"><div class="fill" id="loadFill"></div></div></div>
-<div id="menu"><h1><span>MC</span> 2D</h1><div class="menubtn" onclick="startGame()">单人游戏</div><div class="menubtn" onclick="toggleSettings()">设置</div><div class="menubtn" onclick="window.open('https://github.com/lxy2026620-droid/minecraft-2d','_blank')">GitHub</div><span class="ver">v1.0 · 种子: <span id="menuSeed">---</span></span></div>
+<div id="menu"><h1><span>MC</span> 2D</h1><div class="menubtn" id="btnSingle">单人游戏</div><div class="menubtn" id="btnSettings">设置</div><div class="menubtn" id="btnGitHub">GitHub</div><span class="ver">v1.0 · 种子: <span id="menuSeed">---</span></span></div>
 
 <script>
 "use strict";
@@ -1113,6 +1113,10 @@ function updateInfo(){
 // ============================================================ 初始化
 function init(){
   resize();
+  // 菜单事件绑定(放在最前面确保一定执行)
+  document.getElementById('btnSingle').addEventListener('click',startGame);
+  document.getElementById('btnSettings').addEventListener('click',toggleSettings);
+  document.getElementById('btnGitHub').addEventListener('click',()=>window.open('https://github.com/lxy2026620-droid/minecraft-2d','_blank'));
   buildHotbar(); buildInventoryUI(); updateHUD();
   document.getElementById('crosshair').style.display='block';
   generateWorld();
@@ -1137,11 +1141,6 @@ function init(){
   document.getElementById('craftOut').addEventListener('mousedown',e=>{e.preventDefault();takeCraftResult();});
   document.getElementById('craftOut').addEventListener('contextmenu',e=>e.preventDefault());
   initMobile();
-  // 主菜单按钮事件绑定(修复onclick失效)
-  document.querySelectorAll('.menubtn').forEach(b=>{
-    if(b.textContent.includes('单人'))b.addEventListener('click',startGame);
-    else if(b.textContent.includes('设置'))b.addEventListener('click',toggleSettings);
-  });
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('menuSeed').textContent = worldSeed;
   // 游戏不自动开始, 等待主菜单按钮
