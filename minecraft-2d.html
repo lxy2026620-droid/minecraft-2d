@@ -869,7 +869,7 @@ function render(){
 }
 function drawPlayer(){
   const sx=Math.floor((player.x-camX)*CFG.TILE),sy=Math.floor((player.y-camY)*CFG.TILE),pw=CFG.PW*CFG.TILE,ph=CFG.PH*CFG.TILE,f=player.facing;
-  if(steveTex){ctx.save();ctx.translate(sx+pw/2,sy+ph*0.05);ctx.scale(f,1);ctx.imageSmoothingEnabled=false;ctx.drawImage(steveTex,0,0,8,16,-pw*0.65,-ph*0.05,pw*1.3,ph*0.95);ctx.restore();return;}
+  if(steveTex){ctx.save();ctx.translate(sx+pw/2,sy+ph*0.05);ctx.scale(f,1);ctx.imageSmoothingEnabled=false;ctx.drawImage(steveTex,-pw*0.62,-ph*0.02,pw*1.24,ph*0.98);ctx.restore();return;}
   const swing=player.swing>0?Math.sin((8-player.swing)/8*Math.PI)*0.25:0;
   ctx.save(); ctx.translate(sx+pw/2,sy+ph*0.15); ctx.scale(f,1);
   ctx.imageSmoothingEnabled=false;
@@ -1053,9 +1053,9 @@ function init(){
   buildHotbar(); buildInventoryUI(); updateHUD();
   document.getElementById('crosshair').style.display='block';
   generateWorld();
-  initAudio(); // 预加载MC原版音效
-  // 预加载Steve角色贴图(minecraft.wiki, CORS支持)
-  steveTex=makeSteveTex();
+  initAudio();
+  // 加载Steve角色全身图(mc-heads.net API, CORS支持, 真MC前视图渲染)
+  const sImg=new Image();sImg.crossOrigin='anonymous';sImg.onload=()=>{steveTex=sImg;};sImg.src='https://mc-heads.net/body/Steve/60';
   // 先用后备纹理立即启动(防止加载慢)
   for(const id in DEFS) textures[id]={img:null,loaded:false,canvas:null,fallback:makeFallback(parseInt(id))};
   // 预加载水纹理
