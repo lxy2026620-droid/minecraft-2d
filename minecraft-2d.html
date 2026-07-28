@@ -185,8 +185,15 @@ const DEFS = {
   42:{name:'羽毛',isBlock:false,tex:'item/feather',color:'#f8f8f8'},
   43:{name:'皮革',isBlock:false,tex:'item/leather',color:'#a08050'},
   44:{name:'腐肉',isBlock:false,food:1,tex:'item/rotten_flesh',color:'#7a5a3a'},
+  45:{name:'砂砾',isBlock:true,hardness:0.6,tex:'block/gravel',color:'#7a7a7a'},
+  46:{name:'金矿石',isBlock:true,hardness:3.0,need:'pickaxe',tex:'block/gold_ore',color:'#d8c860'},
+  47:{name:'金锭',isBlock:false,tex:'item/gold_ingot',color:'#e8d828'},
+  48:{name:'金镐',isBlock:false,tool:'pickaxe',mult:12.0,tex:'item/gold_pickaxe',color:'#e8d828'},
+  49:{name:'金剑',isBlock:false,tool:'sword',dmg:4.0,tex:'item/gold_sword',color:'#e8d828'},
+  50:{name:'金斧',isBlock:false,tool:'axe',mult:12.0,tex:'item/gold_axe',color:'#e8d828'},
+  51:{name:'红石粉',isBlock:false,tex:'item/redstone_dust',color:'#c83030'},
 };
-const BLOCK_IDS=[1,2,3,4,5,6,7,8,9,11,16,17,18,19];
+const BLOCK_IDS=[1,2,3,4,5,6,7,8,9,11,16,17,18,19,45,46];
 const SOLID=new Set(BLOCK_IDS);
 const PLACEABLE=new Set(BLOCK_IDS);
 const FUELS={8:1.5,4:1.0,7:1.0,6:0.5,3:0.1}; // 燃料燃烧时间(秒)
@@ -211,6 +218,9 @@ const TABLE_RECIPES=[
   {out:[38,1],in:[{t:3,c:3},{t:10,c:2}],name:'石镐'},
   {out:[39,1],in:[{t:3,c:2},{t:10,c:1}],name:'石剑'},
   {out:[40,1],in:[{t:3,c:3},{t:10,c:2}],name:'石斧'},
+  {out:[48,1],in:[{t:47,c:3},{t:10,c:2}],name:'金镐'},
+  {out:[49,1],in:[{t:47,c:2},{t:10,c:1}],name:'金剑'},
+  {out:[50,1],in:[{t:47,c:3},{t:10,c:2}],name:'金斧'},
 ];
 let activeRecipes=BASIC_RECIPES;
 
@@ -259,6 +269,10 @@ const TEX_MAP={
   'item/stone_axe':'items/stone_axe.png','item/bread':'items/bread.png',
   'item/feather':'items/feather.png','item/leather':'items/leather.png',
   'item/rotten_flesh':'items/rotten_flesh.png',
+  'block/gravel':'blocks/gravel.png','block/gold_ore':'blocks/gold_ore.png',
+  'item/gold_ingot':'items/gold_ingot.png','item/gold_pickaxe':'items/gold_pickaxe.png',
+  'item/gold_sword':'items/gold_sword.png','item/gold_axe':'items/gold_axe.png',
+  'item/redstone_dust':'items/redstone_dust.png',
 };
 const textures={}; let texLoadCount=0, texTotal=0;
 
@@ -389,6 +403,7 @@ function generateWorld(){
       else{ b=3; const d=y-surf;
         if(d>8&&Math.random()<0.022)b=8;
         else if(d>16&&Math.random()<0.016)b=9;
+        else if(d>20&&Math.random()<0.012)b=46; // 金矿石
         else if(d>28&&Math.random()<0.006)b=19; // 钻石矿深部
       }
       world[x][y]=b;
@@ -501,13 +516,12 @@ function updateBreaking(){
 }
 function doBreak(bx,by,b){
   const def=DEFS[b]; setBlock(bx,by,0);
-  // 需要特定工具但未装备 → 方块破坏但无掉落(还原MC机制)
   if(def.need){
     const slot=inventory[selectedSlot]; const it=slot&&DEFS[slot.type];
-    if(!it||it.tool!==def.need){ spawnParticles(bx,by,def.color,6); playSound('dig',b); return; }
+    if(!it||it.tool!==def.need){ spawnParticles(bx,by,def.color,6); spawnDrop(bx,by,def.drop||b,1); playSound('dig',b); return; }
   }
   const drop=def.drop!==undefined?def.drop:b;
-  addToInventory(drop,1);
+  spawnDrop(bx,by,drop,1);
   spawnParticles(bx,by,DEFS[drop].color,10);
   playSound('dig',drop); updateInventoryUI();
 }
@@ -543,6 +557,22 @@ function attack(){
 function spawnParticles(bx,by,color,n){
   n=Math.round(n*settings.particles/10);if(n<=0)return;
   for(let i=0;i<n;i++)particles.push({x:bx+0.2+Math.random()*0.6,y:by+0.2+Math.random()*0.6,vx:(Math.random()-0.5)*0.12,vy:-Math.random()*0.15-0.02,life:20+ri(0,15),color:shadeColor(color,ri(-20,20)),size:2+ri(0,2)});
+}
+// ============================================================ 掉落物系统 (还原MC: 掉落在地面, 靠近拾取)
+const droppedItems=[];
+function spawnDrop(x,y,type,count){
+  droppedItems.push({x:x+0.2+Math.random()*0.6,y:y-0.1,vx:(Math.random()-0.5)*0.06,vy:-0.1,type,count,onGround:false,life:600,bob:Math.random()*Math.PI*2});
+}
+function updateDrops(){
+  for(let i=droppedItems.length-1;i>=0;i--){
+    const d=droppedItems[i];d.bob+=0.05;d.life--;
+    d.vy+=CFG.GRAVITY*0.7;d.y+=d.vy;d.x+=d.vx;d.vx*=0.92;
+    const bx=Math.floor(d.x),by=Math.floor(d.y);
+    if(by>=0&&by<H&&isSolidAt(bx,by)){d.y=by-0.05;d.vy=0;d.vx*=0.5;d.onGround=true;}
+    const dx=player.x+CFG.PW/2-d.x,dy=player.y+CFG.PH/2-d.y,dist=Math.hypot(dx,dy);
+    if(dist<1.8&&d.life<560){d.vx+=dx/dist*0.035;d.vy+=dy/dist*0.035;if(dist<0.45){addToInventory(d.type,d.count);droppedItems.splice(i,1);}}
+    if(d.life<=0||d.y>H+5)droppedItems.splice(i,1);
+  }
 }
 function updateParticles(){ for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.vy+=0.012;p.x+=p.vx;p.y+=p.vy;p.vx*=0.96;p.life--;if(p.life<=0)particles.splice(i,1);} }
 
@@ -821,6 +851,13 @@ function render(){
   for(const a of animals)drawAnimal(a);
   drawPlayer();
   for(const p of particles){const px2=Math.floor((p.x-camX)*CFG.TILE),py=Math.floor((p.y-camY)*CFG.TILE);ctx.fillStyle=p.color;ctx.fillRect(px2,py,p.size,p.size);}
+  // 绘制掉落物
+  for(const d of droppedItems){
+    const dx=Math.floor((d.x-camX)*CFG.TILE),dy=Math.floor((d.y+Math.sin(d.bob)*0.08-camY)*CFG.TILE);
+    const tc=getTexCanvas(d.type);const s=Math.floor(CFG.TILE*0.38);
+    if(tc){ctx.globalAlpha=Math.min(1,d.life/30);ctx.drawImage(tc,0,0,16,16,dx-s/2,dy-s/2,s,s);ctx.globalAlpha=1;}
+    else{ctx.fillStyle=DEFS[d.type]?DEFS[d.type].color:'#fff';ctx.fillRect(dx-4,dy-4,8,8);}
+  }
   drawTargetBox();
   if(sky.dark){ctx.fillStyle=`rgba(0,0,30,${settings.night/100})`;ctx.fillRect(0,0,canvas.width,canvas.height);}
   if(player.hurtCD>20){ctx.fillStyle='rgba(255,0,0,'+((player.hurtCD-20)/10*0.3)+')';ctx.fillRect(0,0,canvas.width,canvas.height);}
@@ -997,7 +1034,7 @@ function loop(){
   animalSpawnTimer--; if(dayTime<0.5&&animalSpawnTimer<=0){spawnAnimal();animalSpawnTimer=ri(300,600);}
   updateSleep();
   if(!sleeping){ updatePhysics(); updateBreaking(); }
-  updateMobs(); updateAnimals(); updateParticles(); updateStats(); updateFurnace(); updateWater(); updateToasts();
+  updateMobs(); updateAnimals(); updateParticles(); updateDrops(); updateStats(); updateFurnace(); updateWater(); updateToasts();
   if(frame%15===0)updateHUD();
   if(frame%20===0)updateInfo();
   if(mouseDown.right&&!inventoryOpen&&!craftingOpen&&!furnaceOpen&&!sleeping){ if(frame%8===0){updateTarget(); if(canReach(targetBX,targetBY)){const b=getBlock(targetBX,targetBY); if(b===0)placeBlock();}}}
@@ -1032,6 +1069,11 @@ function init(){
   updateInventoryUI();
   loadSettings(); applySet();
   initMobile();
+  // 主菜单按钮事件绑定(修复onclick失效)
+  document.querySelectorAll('.menubtn').forEach(b=>{
+    if(b.textContent.includes('单人'))b.addEventListener('click',startGame);
+    else if(b.textContent.includes('设置'))b.addEventListener('click',toggleSettings);
+  });
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('menuSeed').textContent = worldSeed;
   // 游戏不自动开始, 等待主菜单按钮
